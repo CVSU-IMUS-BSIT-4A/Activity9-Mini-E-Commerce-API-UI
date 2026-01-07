@@ -1,6 +1,6 @@
 # Mini E-Commerce API + UI
 
-A full-stack e-commerce application with React frontend and NestJS backend.
+A e-commerce application with React frontend and NestJS backend.
 
 ## Features
 
