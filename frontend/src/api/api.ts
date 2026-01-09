@@ -27,6 +27,7 @@ export interface CartItem {
 
 export interface Order {
   id: number;
+  userId?: number;
   items: Array<{
     productId: number;
     productName: string;
@@ -35,12 +36,28 @@ export interface Order {
   }>;
   totalAmount: number;
   status: string;
+  deliveryDate?: string;
   createdAt: string;
+}
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  address?: string;
+  contactNumber?: string;
+  city?: string;
+  postalCode?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const productsApi = {
   getAll: () => api.get<Product[]>('/products'),
   getById: (id: number) => api.get<Product>(`/products/${id}`),
+  create: (product: Omit<Product, 'id'>) => api.post<Product>('/products', product),
+  update: (id: number, product: Partial<Product>) => api.patch<Product>(`/products/${id}`, product),
+  delete: (id: number) => api.delete(`/products/${id}`),
 };
 
 export const cartApi = {
@@ -54,13 +71,29 @@ export const cartApi = {
 };
 
 export const ordersApi = {
-  create: (items: Array<{ productId: number; quantity: number }>) =>
-    api.post<Order>('/orders', { items }),
+  create: (items: Array<{ productId: number; quantity: number }>, userId?: number) =>
+    api.post<Order>('/orders', { items, userId }),
   getAll: () => api.get<Order[]>('/orders'),
   getById: (id: number) => api.get<Order>(`/orders/${id}`),
+  getByUserId: (userId: number) => api.get<Order[]>(`/orders/user/${userId}`),
+  updateStatus: (id: number, status: string) => 
+    api.patch<Order>(`/orders/${id}/status`, { status }),
+  delete: (id: number) => api.delete(`/orders/${id}`),
+};
+
+export const usersApi = {
+  create: (user: { name: string; email: string; password: string }) =>
+    api.post<User>('/users', user),
+  login: (email: string, password: string) =>
+    api.post<User>('/users/login', { email, password }),
+  getById: (id: number) => api.get<User>(`/users/${id}`),
+  update: (id: number, user: Partial<User>) =>
+    api.patch<User>(`/users/${id}`, user),
+  getAll: () => api.get<User[]>('/users'),
 };
 
 export default api;
+
 
 
 

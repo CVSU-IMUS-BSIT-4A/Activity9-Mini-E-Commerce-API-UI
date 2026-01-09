@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -39,7 +39,23 @@ export class OrdersController {
   updateStatus(@Param('id') id: string, @Body('status') status: string) {
     return this.ordersService.updateStatus(+id, status);
   }
+
+  @Get('user/:userId')
+  @ApiOperation({ summary: 'Get orders by user ID' })
+  @ApiResponse({ status: 200, description: 'List of user orders', type: [Order] })
+  findByUserId(@Param('userId') userId: string) {
+    return this.ordersService.findByUserId(+userId);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete an order by ID' })
+  @ApiResponse({ status: 200, description: 'Order deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  remove(@Param('id') id: string) {
+    return this.ordersService.remove(+id);
+  }
 }
+
 
 
 

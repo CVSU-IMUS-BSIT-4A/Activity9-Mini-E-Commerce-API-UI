@@ -19,7 +19,12 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
+
+  @ApiProperty({ example: 1, required: false })
+  @IsNumber()
+  userId?: number;
 }
+
 
 
 

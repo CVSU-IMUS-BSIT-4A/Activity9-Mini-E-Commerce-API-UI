@@ -23,7 +23,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    refreshCart();
+    refreshCart().catch(() => {
+      // Silently fail if backend is down - user can still use the app
+    });
   }, []);
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -42,5 +44,6 @@ export const useCart = () => {
   }
   return context;
 };
+
 
 

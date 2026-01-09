@@ -49,11 +49,17 @@ export class OrdersService {
       throw new BadRequestException('Total amount must be greater than zero');
     }
 
+    // Calculate delivery date (7 days from now)
+    const deliveryDate = new Date();
+    deliveryDate.setDate(deliveryDate.getDate() + 7);
+
     // Create order
     const order = this.ordersRepository.create({
+      userId: createOrderDto.userId || null,
       items: orderItems,
       totalAmount,
       status: 'pending',
+      deliveryDate,
     });
 
     const savedOrder = await this.ordersRepository.save(order);
@@ -90,7 +96,20 @@ export class OrdersService {
     order.status = status;
     return await this.ordersRepository.save(order);
   }
+
+  async findByUserId(userId: number): Promise<Order[]> {
+    return await this.ordersRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async remove(id: number): Promise<void> {
+    const order = await this.findOne(id);
+    await this.ordersRepository.remove(order);
+  }
 }
+
 
 
 

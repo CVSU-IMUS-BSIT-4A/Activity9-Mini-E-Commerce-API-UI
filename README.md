@@ -41,16 +41,37 @@ Create a MySQL database:
 CREATE DATABASE mini_ecommerce;
 ```
 
-Update the database credentials in `backend/src/app.module.ts` if needed:
-- Default username: `root`
-- Default password: `root`
-- Default database: `mini_ecommerce`
+### 2. Environment Variables Setup
 
-### 2. Backend Setup
+Create a `.env` file in the `backend` directory:
+
+```env
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=root
+DB_PASSWORD=
+DB_DATABASE=mini_ecommerce
+
+# Server Configuration
+PORT=3001
+FRONTEND_URL=http://localhost:3000
+
+# Environment
+NODE_ENV=development
+```
+
+**Note:** Update the database credentials according to your MySQL setup:
+- `DB_PASSWORD`: Leave empty for XAMPP default, or set your MySQL password
+- `DB_USERNAME`: Change if your MySQL username is different
+- `DB_DATABASE`: Change if you used a different database name
+
+### 3. Backend Setup
 
 ```bash
 cd backend
 npm install
+npm install @nestjs/config  # Install ConfigModule for .env support
 npm run start:dev
 ```
 

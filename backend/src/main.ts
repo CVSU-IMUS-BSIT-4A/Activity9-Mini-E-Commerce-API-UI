@@ -1,14 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
   
   // Enable CORS for frontend
+  const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: frontendUrl,
     credentials: true,
   });
 
@@ -26,15 +29,18 @@ async function bootstrap() {
     .addTag('products')
     .addTag('cart')
     .addTag('orders')
+    .addTag('users')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  await app.listen(3001);
-  console.log('Backend server running on http://localhost:3001');
-  console.log('Swagger documentation available at http://localhost:3001/api');
+  const port = configService.get<number>('PORT', 3001);
+  await app.listen(port);
+  console.log(`Backend server running on http://localhost:${port}`);
+  console.log(`Swagger documentation available at http://localhost:${port}/api`);
 }
 bootstrap();
+
 
 
 

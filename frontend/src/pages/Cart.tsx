@@ -1,22 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { cartApi, productsApi, ordersApi, CartItem, Product } from '../api/api';
+import { cartApi, productsApi, ordersApi, CartItem, Product, Order } from '../api/api';
 import { useCart } from '../contexts/CartContext';
+import { useUserAuth } from '../contexts/UserAuthContext';
 import Modal from '../components/Modal';
+import UserAuth from './UserAuth';
 import './Cart.css';
 
 type PaymentMethod = 'cod' | 'credit_card' | 'ewallet';
 type EWalletProvider = 'gcash' | 'paymaya';
-
-interface PersonalInfo {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-  postalCode: string;
-}
 
 interface CreditCardInfo {
   cardNumber: string;
@@ -27,28 +19,25 @@ interface CreditCardInfo {
 
 const Cart = () => {
   const { refreshCart } = useCart();
+  const { user, isAuthenticated, isAccountComplete } = useUserAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Record<number, Product>>({});
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [showUserAuth, setShowUserAuth] = useState(false);
+  const [accountIncompleteError, setAccountIncompleteError] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
   // Checkout steps
-  const [step, setStep] = useState<'cart' | 'personal' | 'payment' | 'payment-details'>('cart');
+  const [step, setStep] = useState<'cart' | 'payment' | 'payment-details' | 'success'>('cart');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [ewalletProvider, setEwalletProvider] = useState<EWalletProvider>('gcash');
+  const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   
   // Form data
-  const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    postalCode: '',
-  });
-  
   const [creditCardInfo, setCreditCardInfo] = useState<CreditCardInfo>({
     cardNumber: '',
     cardName: '',
@@ -56,12 +45,18 @@ const Cart = () => {
     cvv: '',
   });
   
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadCart();
   }, []);
+
+  useEffect(() => {
+    // Select all items by default
+    if (cartItems.length > 0 && selectedItems.size === 0) {
+      setSelectedItems(new Set(cartItems.map(item => item.id)));
+    }
+  }, [cartItems]);
 
   const loadCart = async () => {
     try {
@@ -97,78 +92,113 @@ const Cart = () => {
       await loadCart();
       await refreshCart();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to update quantity');
+      setErrorMessage(err.response?.data?.message || 'Failed to update quantity');
+      setShowErrorModal(true);
     }
   };
 
   const handleRemoveItem = async (itemId: number) => {
     try {
       await cartApi.removeItem(itemId);
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
       await loadCart();
       await refreshCart(); // Update cart badge
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to remove item');
+      // If item not found (404), it's already deleted, just refresh
+      if (err.response?.status === 404) {
+        await loadCart();
+        await refreshCart();
+        return;
+      }
+      setErrorMessage(err.response?.data?.message || 'Failed to remove item');
+      setShowErrorModal(true);
     }
   };
 
-  const validatePersonalInfo = (): boolean => {
-    const { firstName, lastName, email, phone, address, city, postalCode } = personalInfo;
-    if (!firstName || !lastName || !email || !phone || !address || !city || !postalCode) {
-      alert('Please fill in all required fields');
-      return false;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      alert('Please enter a valid email address');
-      return false;
-    }
-    if (!/^09\d{9}$/.test(phone.replace(/\s/g, ''))) {
-      alert('Please enter a valid Philippine mobile number (09XXXXXXXXX)');
-      return false;
-    }
-    return true;
+  const handleToggleItem = (itemId: number) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
   };
+
+  const handleSelectAll = () => {
+    if (selectedItems.size === cartItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(cartItems.map(item => item.id)));
+    }
+  };
+
 
   const validateCreditCard = (): boolean => {
     const { cardNumber, cardName, expiryDate, cvv } = creditCardInfo;
     if (!cardNumber || !cardName || !expiryDate || !cvv) {
-      alert('Please fill in all credit card details');
+      setErrorMessage('Please fill in all credit card details');
+      setShowErrorModal(true);
       return false;
     }
     if (!/^\d{16}$/.test(cardNumber.replace(/\s/g, ''))) {
-      alert('Please enter a valid 16-digit card number');
+      setErrorMessage('Please enter a valid 16-digit card number');
+      setShowErrorModal(true);
       return false;
     }
     if (!/^\d{2}\/\d{2}$/.test(expiryDate)) {
-      alert('Please enter expiry date in MM/YY format');
+      setErrorMessage('Please enter expiry date in MM/YY format');
+      setShowErrorModal(true);
       return false;
     }
     if (!/^\d{3}$/.test(cvv)) {
-      alert('Please enter a valid 3-digit CVV');
+      setErrorMessage('Please enter a valid 3-digit CVV');
+      setShowErrorModal(true);
       return false;
     }
     return true;
   };
 
   const handleProceedToCheckout = () => {
-    if (cartItems.length === 0) {
-      alert('Your cart is empty');
+    if (!isAuthenticated) {
+      setShowUserAuth(true);
       return;
     }
-    setStep('personal');
-  };
 
-  const handlePersonalInfoSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (validatePersonalInfo()) {
-      setStep('payment');
+    if (selectedItems.size === 0) {
+      setErrorMessage('Please select at least one item to checkout');
+      setShowErrorModal(true);
+      return;
     }
+
+    if (!isAccountComplete()) {
+      setAccountIncompleteError(true);
+      setTimeout(() => {
+        setAccountIncompleteError(false);
+        navigate('/account');
+      }, 2000);
+      return;
+    }
+
+    setStep('payment');
   };
 
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
     setPaymentMethod(method);
     if (method === 'cod') {
       // Cash on Delivery - proceed directly to place order
-      handlePlaceOrder();
+      // Close payment modal and process order smoothly
+      setStep('cart'); // Close the payment modal immediately
+      // Small delay to ensure modal closes before processing
+      setTimeout(() => {
+        handlePlaceOrder();
+      }, 100);
     } else {
       // Credit Card or E-Wallet - show payment details form
       setStep('payment-details');
@@ -190,34 +220,50 @@ const Cart = () => {
   const handlePlaceOrder = async () => {
     try {
       setCheckingOut(true);
-      const orderItems = cartItems.map((item) => ({
+      const selectedCartItems = cartItems.filter(item => selectedItems.has(item.id));
+      const orderItems = selectedCartItems.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
       }));
 
-      await ordersApi.create(orderItems);
+      const response = await ordersApi.create(orderItems, user?.id);
       await refreshCart();
       
-      setShowSuccessModal(true);
-      setTimeout(() => {
-        setShowSuccessModal(false);
-        navigate('/');
-      }, 2000);
+      // Remove selected items from cart
+      for (const item of selectedCartItems) {
+        try {
+          await cartApi.removeItem(item.id);
+        } catch (err: any) {
+          // Ignore 404 errors (item might already be deleted)
+          if (err.response?.status !== 404) {
+            console.error('Failed to remove cart item:', err);
+          }
+        }
+      }
+      await loadCart();
+      setSelectedItems(new Set());
+      
+      setPlacedOrder(response.data);
+      setStep('success');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to place order');
+      setErrorMessage(err.response?.data?.message || 'Failed to place order');
+      setShowErrorModal(true);
+      setStep('payment'); // Go back to payment step on error
     } finally {
       setCheckingOut(false);
     }
   };
 
   const calculateTotal = () => {
-    return cartItems.reduce((total, item) => {
-      const product = products[item.productId];
-      if (product) {
-        return total + Number(product.price) * item.quantity;
-      }
-      return total;
-    }, 0);
+    return cartItems
+      .filter(item => selectedItems.has(item.id))
+      .reduce((total, item) => {
+        const product = products[item.productId];
+        if (product) {
+          return total + Number(product.price) * item.quantity;
+        }
+        return total;
+      }, 0);
   };
 
   if (loading) {
@@ -243,13 +289,35 @@ const Cart = () => {
           {/* Step 1: Cart Items */}
           {step === 'cart' && (
             <>
+              <div className="cart-header">
+                <label className="select-all-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.size === cartItems.length && cartItems.length > 0}
+                    onChange={handleSelectAll}
+                  />
+                  <span>Select All</span>
+                </label>
+              </div>
+              {accountIncompleteError && (
+                <div className="account-error-banner">
+                  ⚠️ Please complete your account profile (Address, Contact, City, Postal Code) to proceed with checkout.
+                </div>
+              )}
               <div className="cart-items">
                 {cartItems.map((item) => {
                   const product = products[item.productId];
                   if (!product) return null;
 
                   return (
-                    <div key={item.id} className="cart-item">
+                    <div key={item.id} className={`cart-item ${selectedItems.has(item.id) ? 'selected' : ''}`}>
+                      <div className="cart-item-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(item.id)}
+                          onChange={() => handleToggleItem(item.id)}
+                        />
+                      </div>
                       <div className="cart-item-info">
                         <h3>{product.name}</h3>
                         <p className="cart-item-price">
@@ -289,117 +357,30 @@ const Cart = () => {
               </div>
               <div className="cart-summary">
                 <div className="summary-row">
-                  <span>Total:</span>
+                  <span>Total ({selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''}):</span>
                   <span className="total-amount">
                     ₱{calculateTotal().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
-                <button onClick={handleProceedToCheckout} className="checkout-btn">
+                <button 
+                  onClick={handleProceedToCheckout} 
+                  className="checkout-btn"
+                  disabled={selectedItems.size === 0}
+                >
                   Proceed to Checkout
                 </button>
               </div>
             </>
           )}
 
-          {/* Step 2: Personal Information */}
-          {step === 'personal' && (
+          {/* Step 2: Payment Method Selection */}
+          {step === 'payment' && !checkingOut && (
             <Modal
               isOpen={true}
               onClose={() => setStep('cart')}
-              title="Personal Information"
-              type="form"
-              size="large"
-            >
-              <form onSubmit={handlePersonalInfoSubmit} className="checkout-form">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>First Name *</label>
-                    <input
-                      type="text"
-                      value={personalInfo.firstName}
-                      onChange={(e) => setPersonalInfo({ ...personalInfo, firstName: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Last Name *</label>
-                    <input
-                      type="text"
-                      value={personalInfo.lastName}
-                      onChange={(e) => setPersonalInfo({ ...personalInfo, lastName: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Email Address *</label>
-                  <input
-                    type="email"
-                    value={personalInfo.email}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Phone Number *</label>
-                  <input
-                    type="tel"
-                    placeholder="09XXXXXXXXX"
-                    value={personalInfo.phone}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Address *</label>
-                  <input
-                    type="text"
-                    placeholder="Street address, Building, Unit"
-                    value={personalInfo.address}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, address: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>City *</label>
-                    <input
-                      type="text"
-                      value={personalInfo.city}
-                      onChange={(e) => setPersonalInfo({ ...personalInfo, city: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Postal Code *</label>
-                    <input
-                      type="text"
-                      value={personalInfo.postalCode}
-                      onChange={(e) => setPersonalInfo({ ...personalInfo, postalCode: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-actions">
-                  <button type="button" onClick={() => setStep('cart')} className="back-btn-form">
-                    Back to Cart
-                  </button>
-                  <button type="submit" className="continue-btn">
-                    Continue to Payment
-                  </button>
-                </div>
-              </form>
-            </Modal>
-          )}
-
-          {/* Step 3: Payment Method Selection */}
-          {step === 'payment' && (
-            <Modal
-              isOpen={true}
-              onClose={() => setStep('personal')}
               title="Select Payment Method"
               type="form"
-              size="large"
+              size="medium"
             >
               <div className="payment-methods">
                 <div className="payment-options">
@@ -447,14 +428,40 @@ const Cart = () => {
             </Modal>
           )}
 
-          {/* Step 4a: Credit Card Details */}
-          {step === 'payment-details' && paymentMethod === 'credit_card' && (
+          {/* Loading state during order processing */}
+          {checkingOut && (
+            <Modal
+              isOpen={true}
+              onClose={() => {}}
+              title="Processing Order"
+              type="info"
+              size="small"
+            >
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
+                <div className="loading-spinner" style={{ 
+                  width: '48px', 
+                  height: '48px', 
+                  border: '4px solid var(--border-color)',
+                  borderTop: '4px solid var(--accent)',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 1rem'
+                }}></div>
+                <p style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                  Processing your order...
+                </p>
+              </div>
+            </Modal>
+          )}
+
+          {/* Step 3a: Credit Card Details */}
+          {step === 'payment-details' && paymentMethod === 'credit_card' && !checkingOut && (
             <Modal
               isOpen={true}
               onClose={() => setStep('payment')}
               title="Credit Card Information"
               type="form"
-              size="large"
+              size="medium"
             >
               <form onSubmit={handleCreditCardSubmit} className="checkout-form">
                 <div className="form-group">
@@ -535,14 +542,14 @@ const Cart = () => {
             </Modal>
           )}
 
-          {/* Step 4b: E-Wallet Selection */}
-          {step === 'payment-details' && paymentMethod === 'ewallet' && (
+          {/* Step 3b: E-Wallet Selection */}
+          {step === 'payment-details' && paymentMethod === 'ewallet' && !checkingOut && (
             <Modal
               isOpen={true}
               onClose={() => setStep('payment')}
               title="E-Wallet Payment"
               type="form"
-              size="large"
+              size="medium"
             >
               <form onSubmit={handleEWalletSubmit} className="checkout-form">
                 <div className="ewallet-options">
@@ -573,7 +580,7 @@ const Cart = () => {
                     <input
                       type="tel"
                       placeholder="09XXXXXXXXX"
-                      value={personalInfo.phone}
+                      value={user?.contactNumber || ''}
                       readOnly
                     />
                     <small>We'll send a payment request to this number</small>
@@ -598,20 +605,125 @@ const Cart = () => {
               </form>
             </Modal>
           )}
+
+          {/* Step 4: Success with Receipt */}
+          {step === 'success' && placedOrder && (
+            <Modal
+              isOpen={true}
+              onClose={() => {
+                setStep('cart');
+                navigate('/');
+              }}
+              title="Payment Successful!"
+              type="success"
+              size="large"
+            >
+              <div className="order-receipt">
+                <div className="payment-success-message">
+                  <div className="success-icon">✓</div>
+                  <h3>Payment Successful!</h3>
+                  <p>Your order has been placed successfully. Thank you for your purchase!</p>
+                </div>
+                <div className="receipt-header">
+                  <h3>Order Receipt & Tracking</h3>
+                </div>
+                <div className="receipt-info">
+                  <div className="receipt-row">
+                    <span className="receipt-label">Order ID:</span>
+                    <span className="receipt-value">#{placedOrder.id}</span>
+                  </div>
+                  <div className="receipt-row">
+                    <span className="receipt-label">Total Amount:</span>
+                    <span className="receipt-value">
+                      ₱{Number(placedOrder.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="receipt-row">
+                    <span className="receipt-label">Payment Method:</span>
+                    <span className="receipt-value">
+                      {paymentMethod === 'cod' ? 'Cash on Delivery' : paymentMethod === 'credit_card' ? 'Credit Card' : `${ewalletProvider === 'gcash' ? 'GCash' : 'PayMaya'}`}
+                    </span>
+                  </div>
+                  <div className="receipt-row">
+                    <span className="receipt-label">Payment Status:</span>
+                    <span className="receipt-value payment-success-badge">
+                      Paid
+                    </span>
+                  </div>
+                  <div className="receipt-row">
+                    <span className="receipt-label">Order Date:</span>
+                    <span className="receipt-value">
+                      {new Date(placedOrder.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </span>
+                  </div>
+                  {placedOrder.deliveryDate && (
+                    <div className="receipt-row">
+                      <span className="receipt-label">Estimated Delivery:</span>
+                      <span className="receipt-value">
+                        {new Date(placedOrder.deliveryDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </span>
+                    </div>
+                  )}
+                  <div className="receipt-row">
+                    <span className="receipt-label">Order Status:</span>
+                    <span className="receipt-value status-badge" style={{ backgroundColor: '#ffc107' }}>
+                      {placedOrder.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="receipt-items">
+                  <h4>Order Items:</h4>
+                  <ul>
+                    {placedOrder.items.map((item, index) => (
+                      <li key={index}>
+                        {item.productName} × {item.quantity} - ₱{Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="receipt-footer">
+                  <p>You can track your order in your Account page.</p>
+                  <div className="receipt-actions">
+                    <button 
+                      onClick={() => {
+                        setStep('cart');
+                        navigate('/');
+                      }}
+                      className="back-to-home-btn"
+                    >
+                      Back to Home
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setStep('cart');
+                        navigate('/');
+                      }}
+                      className="order-again-btn"
+                    >
+                      Order Again
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Modal>
+          )}
         </>
       )}
 
+      <UserAuth
+        isOpen={showUserAuth}
+        onClose={() => setShowUserAuth(false)}
+        onSuccess={() => setShowUserAuth(false)}
+      />
       <Modal
-        isOpen={showSuccessModal}
-        onClose={() => {
-          setShowSuccessModal(false);
-          navigate('/');
-        }}
-        type="success"
+        isOpen={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        type="error"
+        title="Error"
+        size="small"
       >
         <p style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>
-          Order placed successfully!<br />
-          Payment Method: {paymentMethod === 'cod' ? 'Cash on Delivery' : paymentMethod === 'credit_card' ? 'Credit Card' : `${ewalletProvider === 'gcash' ? 'GCash' : 'PayMaya'}`}
+          {errorMessage}
         </p>
       </Modal>
     </div>

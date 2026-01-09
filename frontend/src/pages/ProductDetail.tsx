@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { productsApi, Product, cartApi } from '../api/api';
 import { useCart } from '../contexts/CartContext';
+import { useUserAuth } from '../contexts/UserAuthContext';
 import Modal from '../components/Modal';
+import UserAuth from './UserAuth';
 import './ProductDetail.css';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { refreshCart } = useCart();
+  const { isAuthenticated } = useUserAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +20,7 @@ const ProductDetail = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showUserAuth, setShowUserAuth] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -54,6 +58,29 @@ const ProductDetail = () => {
       setShowErrorModal(true);
     } finally {
       setAddingToCart(false);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!product) return;
+
+    if (!isAuthenticated) {
+      setShowUserAuth(true);
+      return;
+    }
+
+    // If authenticated, proceed directly to checkout
+    try {
+      // Clear cart first
+      await cartApi.clearCart();
+      // Add product to cart with selected quantity
+      await cartApi.addItem(product.id, quantity);
+      await refreshCart();
+      // Navigate to cart
+      navigate('/cart');
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.message || 'Failed to proceed to checkout');
+      setShowErrorModal(true);
     }
   };
 
@@ -153,13 +180,22 @@ const ProductDetail = () => {
                   </button>
                 </div>
               </div>
-              <button
-                onClick={handleAddToCart}
-                disabled={addingToCart || product.stock === 0}
-                className="add-to-cart-detail-btn"
-              >
-                {addingToCart ? 'Adding...' : 'Add to Cart'}
-              </button>
+              <div className="product-detail-buttons">
+                <button
+                  onClick={handleAddToCart}
+                  disabled={addingToCart || product.stock === 0}
+                  className="add-to-cart-detail-btn"
+                >
+                  {addingToCart ? 'Adding...' : 'Add to Cart'}
+                </button>
+                <button
+                  onClick={handleBuyNow}
+                  disabled={product.stock === 0}
+                  className="buy-now-detail-btn"
+                >
+                  Buy Now
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -186,6 +222,28 @@ const ProductDetail = () => {
           {errorMessage}
         </p>
       </Modal>
+      <UserAuth
+        isOpen={showUserAuth}
+        onClose={() => setShowUserAuth(false)}
+        onSuccess={async () => {
+          setShowUserAuth(false);
+          if (product) {
+            // After login, proceed with buy now
+            try {
+              // Clear cart first
+              await cartApi.clearCart();
+              // Add product to cart with selected quantity
+              await cartApi.addItem(product.id, quantity);
+              await refreshCart();
+              // Navigate to cart
+              navigate('/cart');
+            } catch (err: any) {
+              setErrorMessage(err.response?.data?.message || 'Failed to proceed to checkout');
+              setShowErrorModal(true);
+            }
+          }
+        }}
+      />
     </div>
   );
 };

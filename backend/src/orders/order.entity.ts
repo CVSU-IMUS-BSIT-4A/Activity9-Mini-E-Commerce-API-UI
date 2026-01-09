@@ -5,6 +5,9 @@ export class Order {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ nullable: true })
+  userId: number; // Link to user account
+
   @Column('json')
   items: Array<{
     productId: number;
@@ -19,9 +22,13 @@ export class Order {
   @Column({ default: 'pending' })
   status: string;
 
+  @Column({ nullable: true })
+  deliveryDate: Date; // Estimated delivery date
+
   @CreateDateColumn()
   createdAt: Date;
 }
+
 
 
 
