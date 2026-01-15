@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { ProductsModule } from './products/products.module';
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
 import { UsersModule } from './users/users.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -12,20 +12,7 @@ import { UsersModule } from './users/users.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'mysql',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 3306),
-        username: configService.get<string>('DB_USERNAME', 'root'),
-        password: configService.get<string>('DB_PASSWORD', ''),
-        database: configService.get<string>('DB_DATABASE', 'mini_ecommerce'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
-      }),
-      inject: [ConfigService],
-    }),
+    StorageModule,
     ProductsModule,
     CartModule,
     OrdersModule,

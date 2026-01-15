@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { StorageService } from '../storage/storage.service';
 import { CartItem } from './cart-item.entity';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
@@ -9,8 +8,7 @@ import { ProductsService } from '../products/products.service';
 @Injectable()
 export class CartService {
   constructor(
-    @InjectRepository(CartItem)
-    private cartRepository: Repository<CartItem>,
+    private storageService: StorageService,
     private productsService: ProductsService,
   ) {}
 
@@ -22,29 +20,35 @@ export class CartService {
     }
 
     // Check if item already exists in cart
-    const existingItem = await this.cartRepository.findOne({
-      where: { productId: addToCartDto.productId },
-    });
+    const existingItem = await this.storageService.findOneBy<CartItem>(
+      'cart_items',
+      (item) => item.productId === addToCartDto.productId
+    );
 
     if (existingItem) {
       const newQuantity = existingItem.quantity + addToCartDto.quantity;
       if (product.stock < newQuantity) {
         throw new BadRequestException('Insufficient stock');
       }
-      existingItem.quantity = newQuantity;
-      return await this.cartRepository.save(existingItem);
+      return await this.storageService.update<CartItem>('cart_items', existingItem.id, {
+        ...existingItem,
+        quantity: newQuantity,
+      });
     }
 
-    const cartItem = this.cartRepository.create(addToCartDto);
-    return await this.cartRepository.save(cartItem);
+    const cartItemData = {
+      ...addToCartDto,
+      createdAt: new Date().toISOString(),
+    } as any;
+    return await this.storageService.create<CartItem>('cart_items', cartItemData);
   }
 
   async findAll(): Promise<CartItem[]> {
-    return await this.cartRepository.find();
+    return await this.storageService.findAll<CartItem>('cart_items');
   }
 
   async findOne(id: number): Promise<CartItem> {
-    const cartItem = await this.cartRepository.findOne({ where: { id } });
+    const cartItem = await this.storageService.findOne<CartItem>('cart_items', id);
     if (!cartItem) {
       throw new NotFoundException(`Cart item with ID ${id} not found`);
     }
@@ -59,17 +63,19 @@ export class CartService {
       throw new BadRequestException('Insufficient stock');
     }
 
-    cartItem.quantity = updateCartItemDto.quantity;
-    return await this.cartRepository.save(cartItem);
+    return await this.storageService.update<CartItem>('cart_items', id, {
+      ...cartItem,
+      quantity: updateCartItemDto.quantity,
+    });
   }
 
   async remove(id: number): Promise<void> {
-    const cartItem = await this.findOne(id);
-    await this.cartRepository.remove(cartItem);
+    await this.findOne(id); // Check if exists
+    await this.storageService.remove('cart_items', id);
   }
 
   async clearCart(): Promise<void> {
-    await this.cartRepository.clear();
+    await this.storageService.clear('cart_items');
   }
 }
 

@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { StorageService } from '../storage/storage.service';
 import { Order } from './order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ProductsService } from '../products/products.service';
@@ -9,8 +8,7 @@ import { CartService } from '../cart/cart.service';
 @Injectable()
 export class OrdersService {
   constructor(
-    @InjectRepository(Order)
-    private ordersRepository: Repository<Order>,
+    private storageService: StorageService,
     private productsService: ProductsService,
     private cartService: CartService,
   ) {}
@@ -54,37 +52,42 @@ export class OrdersService {
     deliveryDate.setDate(deliveryDate.getDate() + 7);
 
     // Create order
-    const order = this.ordersRepository.create({
+    const orderData = {
       userId: createOrderDto.userId || null,
       items: orderItems,
       totalAmount,
       status: 'pending',
-      deliveryDate,
-    });
-
-    const savedOrder = await this.ordersRepository.save(order);
+      deliveryDate: deliveryDate.toISOString(),
+      createdAt: new Date().toISOString(),
+    } as any;
+    const order = await this.storageService.create<Order>('orders', orderData);
 
     // Update product stock
     for (const item of createOrderDto.items) {
       const product = await this.productsService.findOne(item.productId);
-      product.stock -= item.quantity;
-      await this.productsService.update(item.productId, { stock: product.stock });
+      await this.productsService.update(item.productId, { 
+        stock: product.stock - item.quantity 
+      });
     }
 
     // Clear cart after successful order
     await this.cartService.clearCart();
 
-    return savedOrder;
+    return order;
   }
 
   async findAll(): Promise<Order[]> {
-    return await this.ordersRepository.find({
-      order: { createdAt: 'DESC' },
+    const orders = await this.storageService.findAll<Order>('orders');
+    // Sort by createdAt descending
+    return orders.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA;
     });
   }
 
   async findOne(id: number): Promise<Order> {
-    const order = await this.ordersRepository.findOne({ where: { id } });
+    const order = await this.storageService.findOne<Order>('orders', id);
     if (!order) {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
@@ -93,20 +96,27 @@ export class OrdersService {
 
   async updateStatus(id: number, status: string): Promise<Order> {
     const order = await this.findOne(id);
-    order.status = status;
-    return await this.ordersRepository.save(order);
-  }
-
-  async findByUserId(userId: number): Promise<Order[]> {
-    return await this.ordersRepository.find({
-      where: { userId },
-      order: { createdAt: 'DESC' },
+    return await this.storageService.update<Order>('orders', id, {
+      ...order,
+      status,
     });
   }
 
+  async findByUserId(userId: number): Promise<Order[]> {
+    const orders = await this.storageService.findAll<Order>('orders');
+    const userOrders = orders
+      .filter(order => order.userId === userId)
+      .sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+    return userOrders;
+  }
+
   async remove(id: number): Promise<void> {
-    const order = await this.findOne(id);
-    await this.ordersRepository.remove(order);
+    await this.findOne(id); // Check if exists
+    await this.storageService.remove('orders', id);
   }
 }
 

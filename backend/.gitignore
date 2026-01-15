@@ -34,6 +34,9 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# Data files (can be regenerated with npm run seed)
+/data
+
 
 
 
