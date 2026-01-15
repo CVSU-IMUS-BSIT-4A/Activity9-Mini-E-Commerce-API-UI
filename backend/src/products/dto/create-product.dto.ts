@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, Min, IsUrl } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, ValidateIf, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateProductDto {
@@ -22,7 +22,11 @@ export class CreateProductDto {
 
   @ApiProperty({ example: 'https://example.com/image.jpg', required: false })
   @IsOptional()
-  @IsUrl()
+  @ValidateIf((o) => o.imageUrl !== undefined && o.imageUrl !== null && o.imageUrl !== '')
+  @Matches(
+    /^(https?:\/\/.+|(\/|\.\/).+)$/,
+    { message: 'imageUrl must be a valid URL or a relative path starting with /' }
+  )
   imageUrl?: string;
 }
 

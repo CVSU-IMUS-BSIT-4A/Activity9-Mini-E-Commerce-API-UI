@@ -58,6 +58,15 @@ export const productsApi = {
   create: (product: Omit<Product, 'id'>) => api.post<Product>('/products', product),
   update: (id: number, product: Partial<Product>) => api.patch<Product>(`/products/${id}`, product),
   delete: (id: number) => api.delete(`/products/${id}`),
+  uploadImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return api.post<{ message: string; imageUrl: string; filename: string }>('/products/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };
 
 export const cartApi = {

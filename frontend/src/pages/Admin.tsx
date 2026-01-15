@@ -30,6 +30,9 @@ const Admin = ({ activeTab: propActiveTab = 'dashboard', onTabChange, onStatsUpd
     stock: '',
     imageUrl: '',
   });
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Order status update
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -121,6 +124,8 @@ const Admin = ({ activeTab: propActiveTab = 'dashboard', onTabChange, onStatsUpd
   const handleCreateProduct = () => {
     setEditingProduct(null);
     setProductForm({ name: '', description: '', price: '', stock: '', imageUrl: '' });
+    setSelectedImage(null);
+    setImagePreview(null);
     setShowProductModal(true);
   };
 
@@ -133,18 +138,71 @@ const Admin = ({ activeTab: propActiveTab = 'dashboard', onTabChange, onStatsUpd
       stock: product.stock.toString(),
       imageUrl: product.imageUrl || '',
     });
+    setSelectedImage(null);
+    if (product.imageUrl) {
+      // If imageUrl starts with /uploads, prepend API URL, otherwise use as is
+      const previewUrl = product.imageUrl.startsWith('/uploads') 
+        ? `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${product.imageUrl}`
+        : product.imageUrl.startsWith('http') 
+        ? product.imageUrl 
+        : product.imageUrl;
+      setImagePreview(previewUrl);
+    } else {
+      setImagePreview(null);
+    }
     setShowProductModal(true);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.match(/^image\/(jpg|jpeg|png|gif|webp)$/)) {
+        setError('Please select a valid image file (JPG, PNG, GIF, or WebP)');
+        return;
+      }
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image size should be less than 5MB');
+        return;
+      }
+      setSelectedImage(file);
+      setError(null);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setError(null);
+      let imageUrl = productForm.imageUrl;
+
+      // Upload image if a new file is selected
+      if (selectedImage) {
+        setUploadingImage(true);
+        try {
+          const response = await productsApi.uploadImage(selectedImage);
+          imageUrl = response.data.imageUrl;
+        } catch (uploadErr: any) {
+          setError(uploadErr.response?.data?.message || 'Failed to upload image');
+          setUploadingImage(false);
+          return;
+        }
+        setUploadingImage(false);
+      }
+
       const productData = {
         name: productForm.name,
         description: productForm.description,
         price: parseFloat(productForm.price),
         stock: parseInt(productForm.stock),
-        imageUrl: productForm.imageUrl || undefined,
+        imageUrl: imageUrl || undefined,
       };
 
       if (editingProduct) {
@@ -154,9 +212,12 @@ const Admin = ({ activeTab: propActiveTab = 'dashboard', onTabChange, onStatsUpd
       }
       
       setShowProductModal(false);
+      setSelectedImage(null);
+      setImagePreview(null);
       loadData();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to save product');
+      setUploadingImage(false);
     }
   };
 
@@ -612,7 +673,7 @@ const Admin = ({ activeTab: propActiveTab = 'dashboard', onTabChange, onStatsUpd
         onClose={() => setShowProductModal(false)}
         title={editingProduct ? 'Edit Product' : 'Create Product'}
         type="form"
-        size="medium"
+        size="large"
       >
         <form onSubmit={handleSaveProduct} className="admin-form">
           <div className="admin-form-group">
@@ -657,13 +718,82 @@ const Admin = ({ activeTab: propActiveTab = 'dashboard', onTabChange, onStatsUpd
             </div>
           </div>
           <div className="admin-form-group">
-            <label>Image URL</label>
-            <input
-              type="text"
-              value={productForm.imageUrl}
-              onChange={(e) => setProductForm({ ...productForm, imageUrl: e.target.value })}
-              placeholder="/images/products/product.jpg"
-            />
+            <label>Product Image</label>
+            <div className="admin-image-upload-container">
+              {/* Show current image when editing */}
+              {editingProduct && editingProduct.imageUrl && !selectedImage && (
+                <div className="admin-current-image-info">
+                  <p className="admin-current-image-label">Current Image:</p>
+                  <div className="admin-image-preview-wrapper">
+                    <div className="admin-image-preview">
+                      <img 
+                        src={editingProduct.imageUrl.startsWith('/uploads') 
+                          ? `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${editingProduct.imageUrl}`
+                          : editingProduct.imageUrl.startsWith('http') 
+                          ? editingProduct.imageUrl 
+                          : editingProduct.imageUrl} 
+                        alt={editingProduct.name} 
+                      />
+                    </div>
+                  </div>
+                  <p className="admin-image-hint">Upload a new image to replace it</p>
+                </div>
+              )}
+              
+              <input
+                type="file"
+                id="image-upload"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                onChange={handleImageChange}
+                style={{ display: 'none' }}
+              />
+              <label htmlFor="image-upload" className="admin-file-upload-label">
+                <span className="admin-file-upload-icon">📷</span>
+                <span className="admin-file-upload-text">
+                  {selectedImage ? selectedImage.name : editingProduct && editingProduct.imageUrl ? 'Change Image' : 'Choose Image File'}
+                </span>
+                <span className="admin-file-upload-button">Browse</span>
+              </label>
+              
+              {/* Show preview of newly selected image */}
+              {selectedImage && imagePreview && (
+                <div className="admin-image-preview-wrapper">
+                  <div className="admin-image-preview">
+                    <img src={imagePreview} alt="Preview" />
+                    <button
+                      type="button"
+                      className="admin-remove-image"
+                      onClick={() => {
+                        setSelectedImage(null);
+                        if (editingProduct?.imageUrl) {
+                          const previewUrl = editingProduct.imageUrl.startsWith('/uploads') 
+                            ? `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${editingProduct.imageUrl}`
+                            : editingProduct.imageUrl.startsWith('http') 
+                            ? editingProduct.imageUrl 
+                            : editingProduct.imageUrl;
+                          setImagePreview(previewUrl);
+                        } else {
+                          setImagePreview(null);
+                        }
+                        if (!editingProduct) {
+                          setProductForm({ ...productForm, imageUrl: '' });
+                        }
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="admin-image-hint">New image preview</p>
+                </div>
+              )}
+              
+              
+              {uploadingImage && (
+                <div className="admin-upload-progress">
+                  <span>Uploading image...</span>
+                </div>
+              )}
+            </div>
           </div>
           <div className="admin-form-actions">
             <button type="button" onClick={() => setShowProductModal(false)} className="admin-btn-cancel">
