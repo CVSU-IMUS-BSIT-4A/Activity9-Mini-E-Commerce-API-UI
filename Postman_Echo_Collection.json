@@ -1,0 +1,790 @@
+{
+	"info": {
+		"_postman_id": "activity9-echo-collection",
+		"name": "Activity9 - Postman Echo Collection",
+		"description": "Complete HTTP requests (GET, POST, PATCH, DELETE) using Postman Echo service with variables, tests, and documentation",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "GET Requests",
+			"item": [
+				{
+					"name": "GET - Simple Request",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test Response Code",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// Test Response Time",
+									"pm.test(\"Response time is less than 500ms\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(500);",
+									"});",
+									"",
+									"// Test Response Size",
+									"pm.test(\"Response has body\", function () {",
+									"    pm.response.to.have.body();",
+									"});",
+									"",
+									"// Test JSON Response Structure",
+									"pm.test(\"Response is valid JSON\", function () {",
+									"    pm.response.to.be.json;",
+									"});",
+									"",
+									"pm.test(\"Response contains args\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('args');",
+									"});",
+									"",
+									"// Log Response Details",
+									"console.log(\"Response Code: \" + pm.response.code);",
+									"console.log(\"Response Time: \" + pm.response.responseTime + \"ms\");",
+									"console.log(\"Response Size: \" + pm.response.responseSize + \" bytes\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "X-Custom-Header",
+								"value": "{{customHeaderValue}}",
+								"type": "text",
+								"description": "Custom header using variable"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/get?param1={{paramValue1}}&param2={{paramValue2}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"get"
+							],
+							"query": [
+								{
+									"key": "param1",
+									"value": "{{paramValue1}}",
+									"description": "Query parameter 1"
+								},
+								{
+									"key": "param2",
+									"value": "{{paramValue2}}",
+									"description": "Query parameter 2"
+								}
+							]
+						},
+						"description": "Simple GET request with query parameters and headers\n\n**Response Code:** 200\n**Response Time:** < 500ms (tested)\n**Response Size:** Variable\n**PARAMS:** param1, param2\n**HEADERS:** Content-Type, X-Custom-Header\n**Body:** None (GET request)"
+					},
+					"response": []
+				},
+				{
+					"name": "GET - With Path Variables",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response time is acceptable\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(1000);",
+									"});",
+									"",
+									"pm.test(\"Response is JSON\", function () {",
+									"    pm.response.to.be.json;",
+									"});",
+									"",
+									"pm.test(\"Response contains URL with path variable\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.url).to.include('{{pathVariable}}');",
+									"});",
+									"",
+									"// Store response time in variable",
+									"pm.collectionVariables.set(\"lastResponseTime\", pm.response.responseTime);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/{{pathVariable}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"{{pathVariable}}"
+							]
+						},
+						"description": "GET request with path variable\n\n**Response Code:** 200\n**Response Time:** < 1000ms\n**Response Size:** Variable\n**PARAMS:** Path variable ({{pathVariable}})\n**HEADERS:** Accept\n**Body:** None"
+					},
+					"response": []
+				}
+			],
+			"description": "Collection of GET requests using Postman Echo"
+		},
+		{
+			"name": "POST Requests",
+			"item": [
+				{
+					"name": "POST - JSON Body",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test Response Code",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// Test Response Time",
+									"pm.test(\"Response time is less than 1000ms\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(1000);",
+									"});",
+									"",
+									"// Test Response Size",
+									"pm.test(\"Response has content\", function () {",
+									"    pm.expect(pm.response.responseSize).to.be.above(0);",
+									"});",
+									"",
+									"// Test JSON Response",
+									"pm.test(\"Response is valid JSON\", function () {",
+									"    pm.response.to.be.json;",
+									"});",
+									"",
+									"pm.test(\"Response contains data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('json');",
+									"});",
+									"",
+									"pm.test(\"Echoed data matches request\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    var requestBody = pm.request.body.raw;",
+									"    pm.expect(jsonData.json).to.be.an('object');",
+									"});",
+									"",
+									"// Log details",
+									"console.log(\"Response Code: \" + pm.response.code);",
+									"console.log(\"Response Time: \" + pm.response.responseTime + \"ms\");",
+									"console.log(\"Response Size: \" + pm.response.responseSize + \" bytes\");",
+									"console.log(\"Response Body:\", JSON.stringify(pm.response.json(), null, 2));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{bearerToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "X-Request-ID",
+								"value": "{{requestId}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"{{productName}}\",\n    \"price\": {{productPrice}},\n    \"category\": \"{{productCategory}}\",\n    \"description\": \"Test product description\",\n    \"stock\": {{productStock}}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/post",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"post"
+							]
+						},
+						"description": "POST request with JSON body\n\n**Response Code:** 200\n**Response Time:** < 1000ms\n**Response Size:** Variable\n**JSON File:** Included in body with variables\n**PARAMS:** None\n**AUTHORIZATION:** Bearer Token ({{bearerToken}})\n**HEADERS:** Content-Type, X-Request-ID\n**Body:** JSON with product data using variables"
+					},
+					"response": []
+				},
+				{
+					"name": "POST - Form Data",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response time check\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+									"});",
+									"",
+									"pm.test(\"Response contains form data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('form');",
+									"});",
+									"",
+									"// Log response details",
+									"console.log(\"Response Code: \" + pm.response.code);",
+									"console.log(\"Response Size: \" + pm.response.responseSize + \" bytes\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "username",
+									"value": "{{username}}",
+									"type": "text"
+								},
+								{
+									"key": "email",
+									"value": "{{userEmail}}",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/post",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"post"
+							]
+						},
+						"description": "POST request with form data\n\n**Response Code:** 200\n**Response Time:** < 2000ms\n**Response Size:** Variable\n**PARAMS:** None\n**AUTHORIZATION:** None\n**HEADERS:** Content-Type (multipart/form-data)\n**Body:** Form data with username and email"
+					},
+					"response": []
+				}
+			],
+			"description": "Collection of POST requests using Postman Echo"
+		},
+		{
+			"name": "PATCH Requests",
+			"item": [
+				{
+					"name": "PATCH - Update Data",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test Response Code",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// Test Response Time",
+									"pm.test(\"Response time is acceptable\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(1000);",
+									"});",
+									"",
+									"// Test Response Size",
+									"pm.test(\"Response is not empty\", function () {",
+									"    pm.expect(pm.response.responseSize).to.be.above(0);",
+									"});",
+									"",
+									"// Test JSON Structure",
+									"pm.test(\"Response is JSON\", function () {",
+									"    pm.response.to.be.json;",
+									"});",
+									"",
+									"pm.test(\"Response contains updated data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('json');",
+									"});",
+									"",
+									"pm.test(\"Updated price is reflected\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.json && jsonData.json.price) {",
+									"        pm.expect(jsonData.json.price).to.equal({{updatedPrice}});",
+									"    }",
+									"});",
+									"",
+									"// Log comprehensive details",
+									"console.log(\"=== PATCH Response Details ===\");",
+									"console.log(\"Response Code: \" + pm.response.code);",
+									"console.log(\"Response Time: \" + pm.response.responseTime + \"ms\");",
+									"console.log(\"Response Size: \" + pm.response.responseSize + \" bytes\");",
+									"console.log(\"Response Headers:\", pm.response.headers.toObject());",
+									"console.log(\"Response Body:\", JSON.stringify(pm.response.json(), null, 2));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "apikey",
+							"apikey": [
+								{
+									"key": "value",
+									"value": "{{apiKey}}",
+									"type": "string"
+								},
+								{
+									"key": "key",
+									"value": "X-API-Key",
+									"type": "string"
+								},
+								{
+									"key": "in",
+									"value": "header",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "X-Update-Source",
+								"value": "postman-test",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": {{itemId}},\n    \"price\": {{updatedPrice}},\n    \"stock\": {{updatedStock}},\n    \"status\": \"{{itemStatus}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/patch",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"patch"
+							]
+						},
+						"description": "PATCH request for updating data\n\n**Response Code:** 200\n**Response Time:** < 1000ms\n**Response Size:** Variable\n**JSON File:** Update payload with variables\n**PARAMS:** None\n**AUTHORIZATION:** API Key (X-API-Key header)\n**HEADERS:** Content-Type, X-Update-Source\n**Body:** JSON with updated fields (id, price, stock, status)"
+					},
+					"response": []
+				},
+				{
+					"name": "PATCH - Partial Update",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response time check\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(1500);",
+									"});",
+									"",
+									"pm.test(\"Response is JSON\", function () {",
+									"    pm.response.to.be.json;",
+									"});",
+									"",
+									"// Store response data",
+									"var responseData = pm.response.json();",
+									"pm.collectionVariables.set(\"lastPatchResponse\", JSON.stringify(responseData));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\": \"{{updatedDescription}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/patch?item={{itemId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"patch"
+							],
+							"query": [
+								{
+									"key": "item",
+									"value": "{{itemId}}"
+								}
+							]
+						},
+						"description": "PATCH request with query parameter\n\n**Response Code:** 200\n**Response Time:** < 1500ms\n**Response Size:** Variable\n**PARAMS:** item (query parameter)\n**AUTHORIZATION:** None\n**HEADERS:** Content-Type\n**Body:** JSON with partial update (description only)"
+					},
+					"response": []
+				}
+			],
+			"description": "Collection of PATCH requests using Postman Echo"
+		},
+		{
+			"name": "DELETE Requests",
+			"item": [
+				{
+					"name": "DELETE - Remove Item",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test Response Code",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// Test Response Time",
+									"pm.test(\"Response time is less than 1000ms\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(1000);",
+									"});",
+									"",
+									"// Test Response Size",
+									"pm.test(\"Response has content\", function () {",
+									"    pm.expect(pm.response.responseSize).to.be.above(0);",
+									"});",
+									"",
+									"// Test JSON Response",
+									"pm.test(\"Response is valid JSON\", function () {",
+									"    pm.response.to.be.json;",
+									"});",
+									"",
+									"pm.test(\"Response contains URL with delete path\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('url');",
+									"    pm.expect(jsonData.url).to.include('/delete');",
+									"});",
+									"",
+									"// Test that item ID is in response",
+									"pm.test(\"Request URL contains item ID\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    var itemId = pm.collectionVariables.get('deleteItemId');",
+									"    ",
+									"    pm.expect(jsonData).to.have.property('url');",
+									"    ",
+									"    if (itemId && jsonData.url) {",
+									"        pm.expect(jsonData.url).to.include(itemId);",
+									"    } else {",
+									"        pm.expect.fail('deleteItemId variable is not set or response URL is missing');",
+									"    }",
+									"});",
+									"",
+									"// Log all details",
+									"try {",
+									"    console.log(\"=== DELETE Response Details ===\");",
+									"    console.log(\"Response Code: \" + pm.response.code);",
+									"    console.log(\"Response Time: \" + pm.response.responseTime + \"ms\");",
+									"    console.log(\"Response Size: \" + pm.response.responseSize + \" bytes\");",
+									"    ",
+									"    var responseJson = pm.response.json();",
+									"    console.log(\"Response Body:\", JSON.stringify(responseJson, null, 2));",
+									"    ",
+									"    var itemId = pm.collectionVariables.get('deleteItemId');",
+									"    if (itemId) {",
+									"        console.log(\"Expected Item ID: \" + itemId);",
+									"    }",
+									"} catch (e) {",
+									"    console.log(\"Error logging response details: \" + e.message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{bearerToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{bearerToken}}",
+								"type": "text",
+								"description": "Bearer token for authorization"
+							},
+							{
+								"key": "X-Delete-Reason",
+								"value": "{{deleteReason}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/delete/{{deleteItemId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"delete",
+								"{{deleteItemId}}"
+							]
+						},
+						"description": "DELETE request to remove an item\n\n**Response Code:** 200\n**Response Time:** < 1000ms\n**Response Size:** Variable\n**PARAMS:** deleteItemId (path parameter)\n**AUTHORIZATION:** Bearer Token\n**HEADERS:** Authorization, X-Delete-Reason\n**Body:** None (DELETE request)"
+					},
+					"response": []
+				},
+				{
+					"name": "DELETE - With Query Parameters",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response time check\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(1200);",
+									"});",
+									"",
+									"pm.test(\"Response is JSON\", function () {",
+									"    pm.response.to.be.json;",
+									"});",
+									"",
+									"pm.test(\"Response contains args (query params)\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('args');",
+									"});",
+									"",
+									"// Verify query parameters are echoed",
+									"pm.test(\"Query parameters are echoed correctly\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.args) {",
+									"        pm.expect(jsonData.args).to.be.an('object');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/delete?confirm={{confirmDelete}}&type={{deleteType}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"delete"
+							],
+							"query": [
+								{
+									"key": "confirm",
+									"value": "{{confirmDelete}}",
+									"description": "Confirmation flag"
+								},
+								{
+									"key": "type",
+									"value": "{{deleteType}}",
+									"description": "Type of deletion"
+								}
+							]
+						},
+						"description": "DELETE request with query parameters\n\n**Response Code:** 200\n**Response Time:** < 1200ms\n**Response Size:** Variable\n**PARAMS:** confirm, type (query parameters)\n**AUTHORIZATION:** None\n**HEADERS:** Content-Type\n**Body:** None"
+					},
+					"response": []
+				}
+			],
+			"description": "Collection of DELETE requests using Postman Echo"
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://postman-echo.com",
+			"type": "string"
+		},
+		{
+			"key": "bearerToken",
+			"value": "your-bearer-token-here",
+			"type": "string"
+		},
+		{
+			"key": "apiKey",
+			"value": "your-api-key-here",
+			"type": "string"
+		},
+		{
+			"key": "paramValue1",
+			"value": "test-value-1",
+			"type": "string"
+		},
+		{
+			"key": "paramValue2",
+			"value": "test-value-2",
+			"type": "string"
+		},
+		{
+			"key": "pathVariable",
+			"value": "get",
+			"type": "string"
+		},
+		{
+			"key": "customHeaderValue",
+			"value": "custom-header-content",
+			"type": "string"
+		},
+		{
+			"key": "productName",
+			"value": "Test Product",
+			"type": "string"
+		},
+		{
+			"key": "productPrice",
+			"value": "99.99",
+			"type": "string"
+		},
+		{
+			"key": "productCategory",
+			"value": "Electronics",
+			"type": "string"
+		},
+		{
+			"key": "productStock",
+			"value": "100",
+			"type": "string"
+		},
+		{
+			"key": "requestId",
+			"value": "req-12345",
+			"type": "string"
+		},
+		{
+			"key": "username",
+			"value": "testuser",
+			"type": "string"
+		},
+		{
+			"key": "userEmail",
+			"value": "test@example.com",
+			"type": "string"
+		},
+		{
+			"key": "itemId",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "updatedPrice",
+			"value": "149.99",
+			"type": "string"
+		},
+		{
+			"key": "updatedStock",
+			"value": "50",
+			"type": "string"
+		},
+		{
+			"key": "itemStatus",
+			"value": "active",
+			"type": "string"
+		},
+		{
+			"key": "updatedDescription",
+			"value": "Updated product description",
+			"type": "string"
+		},
+		{
+			"key": "deleteItemId",
+			"value": "123",
+			"type": "string"
+		},
+		{
+			"key": "deleteReason",
+			"value": "No longer needed",
+			"type": "string"
+		},
+		{
+			"key": "confirmDelete",
+			"value": "true",
+			"type": "string"
+		},
+		{
+			"key": "deleteType",
+			"value": "soft",
+			"type": "string"
+		}
+	]
+}
